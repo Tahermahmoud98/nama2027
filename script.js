@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- API Configuration ---
     // ضع رابط تطبيق الويب الخاص بـ Google Apps Script هنا
-    const API_URL = "https://script.google.com/macros/s/AKfycbzpcCc4L43_r-lymDeC4rEoQLtQmnNgPS9E7m_aGnl59dudT0EALGYvaNiskt69j7hs/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbzhgReSLGBv4UvgdvEwmDFyECaveVNtKlqwRhBVwWl_H05RmTjgVyR20BVMIHNA2nPh/exec"; 
 
     // --- Loading State Helper ---
     const setLoading = (btn, isLoading, originalText = '') => {
@@ -1484,36 +1484,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleInviteTeacher = async (teacher) => {
         if (!currentUser) return;
         const dict = translations[currentLang] || translations.ku;
+        const adminFullName = ((currentUser.firstName || '') + ' ' + (currentUser.lastName || '')).trim() || currentUser.contact;
 
         if (API_URL) {
             try {
-                await callApi('inviteTeacher', {
+                const res = await callApi('inviteTeacher', {
                     adminContact: currentUser.contact,
+                    adminName: adminFullName,
                     schoolName: currentUser.schoolName,
                     teacherContact: teacher.contact,
                     teacherName: teacher.name,
                     token: currentUser.token
                 });
+
+                if (res.success) {
+                    // Update local list
+                    const existingIdx = localSchoolTeachers.findIndex(t => t.contact === teacher.contact);
+                    if (existingIdx === -1) {
+                        localSchoolTeachers.push({
+                            contact: teacher.contact,
+                            name: teacher.name,
+                            schoolName: currentUser.schoolName || teacher.schoolName,
+                            status: 'pending'
+                        });
+                    }
+                    saveStoredSchoolTeachers(localSchoolTeachers);
+
+                    showDialog(dict.msg_invite_success || 'تمت دعوة المعلم ومشاركة بيانات طلاب المدرسة معه بنجاح!');
+                    performTeacherSearch(searchTeacherInput ? searchTeacherInput.value.trim() : '');
+                    renderMySchoolTeachers();
+                } else {
+                    showDialog(res.message || 'تعذر إرسال الدعوة.');
+                }
             } catch (err) {
                 console.error('Invite API error:', err);
+                showDialog('حدث خطأ أثناء إرسال الدعوة.');
             }
         }
-
-        // Update local list
-        const existingIdx = localSchoolTeachers.findIndex(t => t.contact === teacher.contact);
-        if (existingIdx === -1) {
-            localSchoolTeachers.push({
-                contact: teacher.contact,
-                name: teacher.name,
-                schoolName: currentUser.schoolName || teacher.schoolName,
-                status: 'active'
-            });
-        }
-        saveStoredSchoolTeachers(localSchoolTeachers);
-
-        showDialog(dict.msg_invite_success || 'تمت دعوة المعلم ومشاركة بيانات طلاب المدرسة معه بنجاح!');
-        performTeacherSearch(searchTeacherInput ? searchTeacherInput.value.trim() : '');
-        renderMySchoolTeachers();
     };
 
     const handleUnshareTeacher = async (teacher) => {
@@ -1686,9 +1693,18 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (notificationsBtn) {
-        notificationsBtn.addEventListener('click', () => {
+        notificationsBtn.addEventListener('click', async () => {
             if (invitationsModal) {
                 invitationsModal.style.display = 'block';
+                if (invitationsListContainer) {
+                    invitationsListContainer.innerHTML = `
+                        <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-secondary);">
+                            <i class="fa-solid fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 0.8rem; display: block; color: var(--primary-color);"></i>
+                            <span>جاري فحص وتحديث الدعوات...</span>
+                        </div>
+                    `;
+                }
+                await loadTeacherInvitations();
                 renderTeacherInvitations();
             }
         });

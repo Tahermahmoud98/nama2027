@@ -250,10 +250,11 @@ function loginUser(data) {
 function getStudents(data) {
   const usersSheet = getOrCreateSheet("Users");
   const userValues = usersSheet.getDataRange().getValues();
+  const normUserContact = normalizeContact(data.contact);
   let userRole = "admin";
 
   for (let i = 1; i < userValues.length; i++) {
-    if (userValues[i][3] == data.contact) {
+    if (normalizeContact(userValues[i][3]) === normUserContact) {
       userRole = userValues[i][4];
       break;
     }
@@ -265,21 +266,21 @@ function getStudents(data) {
 
   // إذا كان مديراً: يجلب طلابه
   // إذا كان معلماً: يجلب طلاب المدارس التي قبل دعوتها فقط (accepted)
-  let allowedContacts = [data.contact];
+  let allowedContacts = [normUserContact];
   if (userRole === "teacher") {
     const stSheet = getOrCreateSheet("SchoolTeachers");
     const stValues = stSheet.getDataRange().getValues();
     for (let i = 1; i < stValues.length; i++) {
-      if (stValues[i][3] == data.contact && (stValues[i][5] == "accepted" || stValues[i][5] == "active")) {
-        allowedContacts.push(stValues[i][1]); // Admin Contact
+      if (normalizeContact(stValues[i][3]) === normUserContact && (stValues[i][5] == "accepted" || stValues[i][5] == "active")) {
+        allowedContacts.push(normalizeContact(stValues[i][1])); // Admin Contact
       }
     }
   }
   
   for (let i = 1; i < values.length; i++) {
-    const ownerContact = values[i][1];
+    const normOwnerContact = normalizeContact(values[i][1]);
     
-    if (allowedContacts.indexOf(ownerContact) !== -1) {
+    if (allowedContacts.indexOf(normOwnerContact) !== -1) {
       students.push({
         id: values[i][0], name: values[i][2], class: values[i][3],
         section: values[i][4], parentNumber: values[i][5]
@@ -293,7 +294,7 @@ function addStudent(data) {
   const sheet = getOrCreateSheet("Students");
   sheet.appendRow([
     Utilities.getUuid(),
-    data.contact,
+    String(data.contact || "").trim(),
     data.student.name,
     data.student.class,
     data.student.section,
@@ -311,16 +312,18 @@ function searchTeachers(data) {
   const userValues = usersSheet.getDataRange().getValues();
   const stSheet = getOrCreateSheet("SchoolTeachers");
   const stValues = stSheet.getDataRange().getValues();
+  const normAdminContact = normalizeContact(data.contact);
 
   // المعلمون وحالات دعوتهم لدى هذا المدير
   const teacherStatusMap = {};
   for (let i = 1; i < stValues.length; i++) {
-    if (stValues[i][1] == data.contact) {
-      teacherStatusMap[stValues[i][3]] = stValues[i][5]; // 'pending', 'accepted', 'rejected'
+    if (normalizeContact(stValues[i][1]) === normAdminContact) {
+      teacherStatusMap[normalizeContact(stValues[i][3])] = stValues[i][5]; // 'pending', 'accepted', 'rejected'
     }
   }
 
   const query = (data.query || "").toLowerCase().trim();
+  const normQuery = normalizeContact(query);
   const teachers = [];
 
   for (let i = 1; i < userValues.length; i++) {
@@ -328,16 +331,18 @@ function searchTeachers(data) {
     const role = row[4];
     if (role === "teacher") {
       const fullName = (row[1] + " " + (row[2] || "")).trim();
-      const contact = String(row[3] || "");
-      const schoolName = String(row[8] || "");
+      const contact = String(row[3] || "").trim();
+      const schoolName = String(row[8] || "").trim();
+      const normTeacherContact = normalizeContact(contact);
 
       const matches = !query || 
                       fullName.toLowerCase().indexOf(query) !== -1 || 
                       contact.toLowerCase().indexOf(query) !== -1 ||
+                      (normQuery && normTeacherContact.indexOf(normQuery) !== -1) ||
                       schoolName.toLowerCase().indexOf(query) !== -1;
 
       if (matches) {
-        const status = teacherStatusMap[contact] || "none";
+        const status = teacherStatusMap[normTeacherContact] || "none";
         teachers.push({
           id: row[0],
           name: fullName,
@@ -356,10 +361,12 @@ function searchTeachers(data) {
 function inviteTeacher(data) {
   const stSheet = getOrCreateSheet("SchoolTeachers");
   const values = stSheet.getDataRange().getValues();
+  const normAdminContact = normalizeContact(data.adminContact);
+  const normTeacherContact = normalizeContact(data.teacherContact);
 
   // فحص إذا كان الربط موجوداً مسبقاً
   for (let i = 1; i < values.length; i++) {
-    if (values[i][1] == data.adminContact && values[i][3] == data.teacherContact) {
+    if (normalizeContact(values[i][1]) === normAdminContact && normalizeContact(values[i][3]) === normTeacherContact) {
       stSheet.getRange(i + 1, 6).setValue("pending");
       stSheet.getRange(i + 1, 3).setValue(data.schoolName || "");
       stSheet.getRange(i + 1, 8).setValue(data.adminName || "");
@@ -369,13 +376,13 @@ function inviteTeacher(data) {
 
   stSheet.appendRow([
     Utilities.getUuid(),
-    data.adminContact,
-    data.schoolName || "",
-    data.teacherContact,
-    data.teacherName || "",
+    String(data.adminContact || "").trim(),
+    String(data.schoolName || "").trim(),
+    String(data.teacherContact || "").trim(),
+    String(data.teacherName || "").trim(),
     "pending",
     new Date(),
-    data.adminName || ""
+    String(data.adminName || "").trim()
   ]);
 
   return { success: true, message: "تم إرسال الدعوة للمعلم بنجاح. سيظهر له إشعار للموافقة عند تسجيل دخوله." };
@@ -384,9 +391,11 @@ function inviteTeacher(data) {
 function unshareTeacher(data) {
   const stSheet = getOrCreateSheet("SchoolTeachers");
   const values = stSheet.getDataRange().getValues();
+  const normAdminContact = normalizeContact(data.adminContact);
+  const normTeacherContact = normalizeContact(data.teacherContact);
 
   for (let i = 1; i < values.length; i++) {
-    if (values[i][1] == data.adminContact && values[i][3] == data.teacherContact) {
+    if (normalizeContact(values[i][1]) === normAdminContact && normalizeContact(values[i][3]) === normTeacherContact) {
       stSheet.getRange(i + 1, 6).setValue("rejected");
       return { success: true, message: "تم إلغاء مشاركة بيانات الطلاب مع المعلم." };
     }
@@ -398,10 +407,11 @@ function unshareTeacher(data) {
 function getSchoolTeachers(data) {
   const stSheet = getOrCreateSheet("SchoolTeachers");
   const values = stSheet.getDataRange().getValues();
+  const normContact = normalizeContact(data.contact);
   const teachers = [];
 
   for (let i = 1; i < values.length; i++) {
-    if (values[i][1] == data.contact && (values[i][5] == "accepted" || values[i][5] == "active" || values[i][5] == "pending")) {
+    if (normalizeContact(values[i][1]) === normContact && (values[i][5] == "accepted" || values[i][5] == "active" || values[i][5] == "pending")) {
       teachers.push({
         id: values[i][0],
         adminContact: values[i][1],
@@ -420,10 +430,11 @@ function getSchoolTeachers(data) {
 function getTeacherInvitations(data) {
   const stSheet = getOrCreateSheet("SchoolTeachers");
   const values = stSheet.getDataRange().getValues();
+  const normTeacherContact = normalizeContact(data.contact);
   const invitations = [];
 
   for (let i = 1; i < values.length; i++) {
-    if (values[i][3] == data.contact && values[i][5] == "pending") {
+    if (normalizeContact(values[i][3]) === normTeacherContact && values[i][5] == "pending") {
       invitations.push({
         id: values[i][0],
         adminContact: values[i][1],
@@ -447,8 +458,10 @@ function respondInvitation(data) {
   const isAccept = data.response === "accept";
   const newStatus = isAccept ? "accepted" : "rejected";
 
+  const normTeacherContact = normalizeContact(data.contact);
+
   for (let i = 1; i < values.length; i++) {
-    if (values[i][0] == data.invitationId && values[i][3] == data.contact) {
+    if (values[i][0] == data.invitationId && (normalizeContact(values[i][3]) === normTeacherContact || values[i][3] == data.contact)) {
       stSheet.getRange(i + 1, 6).setValue(newStatus);
       
       if (isAccept) {
