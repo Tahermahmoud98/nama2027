@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- API Configuration ---
     // ضع رابط تطبيق الويب الخاص بـ Google Apps Script هنا
-    const API_URL = "https://script.google.com/macros/s/AKfycbyywnh7PYW_8GI3W8sC4zHagKgzGJhzA6G9xIQGzeWVl-35OTB1vFn_bCNmhNROHoaBeA/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbzpcCc4L43_r-lymDeC4rEoQLtQmnNgPS9E7m_aGnl59dudT0EALGYvaNiskt69j7hs/exec"; 
 
     // --- Loading State Helper ---
     const setLoading = (btn, isLoading, originalText = '') => {
@@ -304,8 +304,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const schoolName = sanitizeHtml(regSchoolName ? regSchoolName.value.trim() : '');
         const contact = sanitizeHtml(regContact.value.trim());
         const role = regRole.value;
-        const password = sanitizeHtml(regPassword.value);
-        const confirmPassword = sanitizeHtml(regConfirmPassword.value);
+        const password = regPassword.value;
+        const confirmPassword = regConfirmPassword.value;
 
         if (!firstName || !lastName || !schoolName || !contact || !password) {
             let msg = 'يرجى تعبئة جميع الحقول المطلوبة بما في ذلك اسم المدرسة.';
@@ -358,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const contact = sanitizeHtml(loginUsername.value.trim());
-        const password = sanitizeHtml(loginPassword.value);
+        const password = loginPassword.value;
         
         if (!contact || !password) {
             showDialog('يرجى إدخال اسم المستخدم وكلمة المرور.');

@@ -125,27 +125,55 @@ function getOrCreateSheet(sheetName) {
   return sheet;
 }
 
+// دالة توحيد وتنظيف أرقام الهواتف والبريد الإلكتروني
+function normalizeContact(str) {
+  if (!str) return "";
+  let s = String(str).trim().toLowerCase();
+  
+  // تحويل الأرقام العربية والفارسية (٠١٢٣٤٥٦٧٨٩) إلى أرقام إنجليزية
+  const arabicDigits = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+  const persianDigits = ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'];
+  for (let i = 0; i < 10; i++) {
+    s = s.split(arabicDigits[i]).join(String(i));
+    s = s.split(persianDigits[i]).join(String(i));
+  }
+  
+  // إذا كان المدخل رقم هاتف: تنظيف الرموز والمسافات وإزالة الصفر أو رمز الدولة 964 لتوحيد المقارنة
+  let digitsOnly = s.replace(/\D/g, '');
+  if (digitsOnly.length >= 7) {
+    if (digitsOnly.startsWith('964')) {
+      digitsOnly = digitsOnly.substring(3);
+    }
+    if (digitsOnly.startsWith('0')) {
+      digitsOnly = digitsOnly.substring(1);
+    }
+    return digitsOnly;
+  }
+  
+  return s;
+}
+
 function registerUser(data) {
   const sheet = getOrCreateSheet("Users");
   const values = sheet.getDataRange().getValues();
-  const inputContact = String(data.contact || "").trim().toLowerCase();
+  const rawContact = String(data.contact || "").trim();
+  const normInput = normalizeContact(rawContact);
 
   for (let i = 1; i < values.length; i++) {
-    const rowContact = String(values[i][3] || "").trim().toLowerCase();
-    if (rowContact == inputContact) {
+    const rowContact = String(values[i][3] || "").trim();
+    if (normalizeContact(rowContact) === normInput || rowContact.toLowerCase() === rawContact.toLowerCase()) {
       return { success: false, message: "رقم الهاتف أو البريد الإلكتروني مسجل بالفعل." };
     }
   }
 
   const token = Utilities.getUuid();
   const passwordHash = hashPassword(data.password);
-  const cleanContact = String(data.contact || "").trim();
   
   sheet.appendRow([
     Utilities.getUuid(),
     String(data.firstName || "").trim(),
     String(data.lastName || "").trim(),
-    cleanContact,
+    rawContact,
     data.role || "teacher",
     passwordHash,
     new Date(),
@@ -159,7 +187,7 @@ function registerUser(data) {
     user: {
       firstName: data.firstName,
       lastName: data.lastName,
-      contact: cleanContact,
+      contact: rawContact,
       role: data.role,
       schoolName: data.schoolName || "",
       token: token
@@ -171,12 +199,29 @@ function loginUser(data) {
   const sheet = getOrCreateSheet("Users");
   const values = sheet.getDataRange().getValues();
   const inputHash = hashPassword(data.password);
-  const inputIdentifier = String(data.contact || data.username || "").trim().toLowerCase();
+  const rawInput = String(data.contact || data.username || "").trim();
+  const normInput = normalizeContact(rawInput);
 
   for (let i = 1; i < values.length; i++) {
-    const rowContact = String(values[i][3] || "").trim().toLowerCase();
-    if (rowContact == inputIdentifier) {
-      if (values[i][5] == inputHash) {
+    const row = values[i];
+    const rowContact = String(row[3] || "").trim();
+    const rowFullName = (String(row[1] || "") + " " + String(row[2] || "")).trim();
+    const rowFirstName = String(row[1] || "").trim();
+    const rowStoredPassword = String(row[5] || "");
+
+    // مطابقة مرنة: برقم الهاتف الموحد، أو البريد، أو الاسم الكامل، أو الاسم الأول
+    const isContactMatch = (normInput && normalizeContact(rowContact) === normInput) || 
+                           (rowContact.toLowerCase() === rawInput.toLowerCase()) ||
+                           (rowFullName.toLowerCase() === rawInput.toLowerCase()) ||
+                           (rowFirstName.toLowerCase() === rawInput.toLowerCase());
+
+    if (isContactMatch) {
+      // مطابقة كلمة المرور سواء كانت مشفرة SHA256 أو نص عادي قديم
+      const isPasswordMatch = (rowStoredPassword === inputHash) || 
+                              (rowStoredPassword === data.password) ||
+                              (hashPassword(rowStoredPassword) === inputHash);
+
+      if (isPasswordMatch) {
         const token = Utilities.getUuid();
         sheet.getRange(i + 1, 8).setValue(token);
 
@@ -184,12 +229,12 @@ function loginUser(data) {
           success: true,
           token: token,
           user: {
-            id: values[i][0],
-            firstName: values[i][1],
-            lastName: values[i][2],
-            contact: values[i][3],
-            role: values[i][4],
-            schoolName: values[i][8] || "",
+            id: row[0],
+            firstName: row[1],
+            lastName: row[2] || "",
+            contact: row[3],
+            role: row[4],
+            schoolName: row[8] || "",
             token: token
           }
         };
@@ -199,7 +244,7 @@ function loginUser(data) {
     }
   }
 
-  return { success: false, message: "المستخدم غير موجود." };
+  return { success: false, message: "المستخدم غير موجود. تأكد من رقم الهاتف أو البريد الإلكتروني." };
 }
 
 function getStudents(data) {
