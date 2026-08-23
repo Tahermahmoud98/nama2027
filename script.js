@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- API Configuration ---
     // ضع رابط تطبيق الويب الخاص بـ Google Apps Script هنا
-    const API_URL = "https://script.google.com/macros/s/AKfycbzhgReSLGBv4UvgdvEwmDFyECaveVNtKlqwRhBVwWl_H05RmTjgVyR20BVMIHNA2nPh/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbztl4GZHrq0XWbQYCrilc9RfiS91TLMFL6hlYAxNCFNcgs9Mm38cChbcTSF8UQVc15d7w/exec"; 
 
     // --- Loading State Helper ---
     const setLoading = (btn, isLoading, originalText = '') => {
@@ -1489,6 +1489,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (API_URL) {
             try {
                 const res = await callApi('inviteTeacher', {
+                    contact: currentUser.contact,
                     adminContact: currentUser.contact,
                     adminName: adminFullName,
                     schoolName: currentUser.schoolName,
@@ -1530,6 +1531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (API_URL) {
             try {
                 await callApi('unshareTeacher', {
+                    contact: currentUser.contact,
                     adminContact: currentUser.contact,
                     teacherContact: teacher.contact,
                     token: currentUser.token

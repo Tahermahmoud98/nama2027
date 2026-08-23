@@ -1,130 +1,5 @@
 // نسخة محمية: تشفير كلمات المرور، نظام التحقق (Tokens)، وإدارة المدارس ونظام إشعارات ودعوات المعلمين
 
-function doPost(e) {
-  let response = { success: false, message: "Unknown action" };
-  
-  try {
-    const data = JSON.parse(e.postData.contents);
-    const action = data.action;
-    
-    const lock = LockService.getScriptLock();
-    lock.waitLock(10000);
-    
-    try {
-      if (action === "register") {
-        response = registerUser(data);
-      } else if (action === "login") {
-        response = loginUser(data);
-      } else if (action === "getStudents") {
-        if (verifyToken(data.contact, data.token)) {
-          response = getStudents(data);
-        } else {
-          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
-        }
-      } else if (action === "addStudent") {
-        if (verifyToken(data.contact, data.token)) {
-          response = addStudent(data);
-        } else {
-          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
-        }
-      } else if (action === "searchTeachers") {
-        if (verifyToken(data.contact, data.token)) {
-          response = searchTeachers(data);
-        } else {
-          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
-        }
-      } else if (action === "inviteTeacher") {
-        if (verifyToken(data.contact, data.token)) {
-          response = inviteTeacher(data);
-        } else {
-          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
-        }
-      } else if (action === "unshareTeacher") {
-        if (verifyToken(data.contact, data.token)) {
-          response = unshareTeacher(data);
-        } else {
-          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
-        }
-      } else if (action === "getSchoolTeachers") {
-        if (verifyToken(data.contact, data.token)) {
-          response = getSchoolTeachers(data);
-        } else {
-          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
-        }
-      } else if (action === "getTeacherInvitations") {
-        if (verifyToken(data.contact, data.token)) {
-          response = getTeacherInvitations(data);
-        } else {
-          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
-        }
-      } else if (action === "respondInvitation") {
-        if (verifyToken(data.contact, data.token)) {
-          response = respondInvitation(data);
-        } else {
-          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
-        }
-      }
-    } finally {
-      lock.releaseLock();
-    }
-    
-  } catch (error) {
-    response = { success: false, message: error.toString() };
-  }
-  
-  return ContentService.createTextOutput(JSON.stringify(response))
-                       .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doOptions(e) {
-  return ContentService.createTextOutput("")
-                       .setMimeType(ContentService.MimeType.TEXT);
-}
-function doGet(e) { return ContentService.createTextOutput("تطبيق الخادم يعمل بنجاح!"); }
-
-// --- دوال الحماية والتشفير ---
-function hashPassword(password) {
-  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, password);
-  let hashStr = '';
-  for (let i = 0; i < digest.length; i++) {
-    let byteStr = (digest[i] < 0 ? digest[i] + 256 : digest[i]).toString(16);
-    if (byteStr.length == 1) byteStr = '0' + byteStr;
-    hashStr += byteStr;
-  }
-  return hashStr;
-}
-
-// التحقق من صحة الجلسة باستخدام التوكن
-function verifyToken(contact, token) {
-  if (!contact || !token) return false;
-  const sheet = getOrCreateSheet("Users");
-  const values = sheet.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    if (values[i][3] == contact && values[i][7] == token) {
-      return true; // Token matches
-    }
-  }
-  return false;
-}
-
-// ---------------------------------
-
-function getOrCreateSheet(sheetName) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    sheet = ss.insertSheet(sheetName);
-    if (sheetName === "Users") {
-      sheet.appendRow(["ID", "FirstName", "LastName", "Contact", "Role", "PasswordHash", "CreatedAt", "Token", "SchoolName"]);
-    } else if (sheetName === "Students") {
-      sheet.appendRow(["ID", "OwnerContact", "StudentName", "Class", "Section", "ParentNumber", "CreatedAt", "SchoolName"]);
-    } else if (sheetName === "SchoolTeachers") {
-      sheet.appendRow(["ID", "AdminContact", "SchoolName", "TeacherContact", "TeacherName", "Status", "CreatedAt", "AdminName"]);
-    }
-  }
-  return sheet;
-}
-
 // دالة توحيد وتنظيف أرقام الهواتف والبريد الإلكتروني
 function normalizeContact(str) {
   if (!str) return "";
@@ -151,6 +26,139 @@ function normalizeContact(str) {
   }
   
   return s;
+}
+
+// --- دوال الحماية والتشفير ---
+function hashPassword(password) {
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(password || ""));
+  let hashStr = '';
+  for (let i = 0; i < digest.length; i++) {
+    let byteStr = (digest[i] < 0 ? digest[i] + 256 : digest[i]).toString(16);
+    if (byteStr.length == 1) byteStr = '0' + byteStr;
+    hashStr += byteStr;
+  }
+  return hashStr;
+}
+
+// التحقق من صحة الجلسة والتوكن
+function verifyToken(contact, token) {
+  if (!token) return false;
+  const sheet = getOrCreateSheet("Users");
+  const values = sheet.getDataRange().getValues();
+  const normUserContact = normalizeContact(contact);
+  const cleanToken = String(token).trim();
+
+  for (let i = 1; i < values.length; i++) {
+    const rowToken = String(values[i][7] || "").trim();
+    if (rowToken === cleanToken) {
+      if (!contact || normalizeContact(values[i][3]) === normUserContact || String(values[i][3]).trim().toLowerCase() === String(contact).trim().toLowerCase()) {
+        return true; // Session verified
+      }
+    }
+  }
+  return false;
+}
+
+function doPost(e) {
+  let response = { success: false, message: "Unknown action" };
+  
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const action = data.action;
+    const authContact = data.contact || data.adminContact || "";
+    const authToken = data.token;
+    
+    const lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+    
+    try {
+      if (action === "register") {
+        response = registerUser(data);
+      } else if (action === "login") {
+        response = loginUser(data);
+      } else if (action === "getStudents") {
+        if (verifyToken(authContact, authToken)) {
+          response = getStudents(data);
+        } else {
+          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
+        }
+      } else if (action === "addStudent") {
+        if (verifyToken(authContact, authToken)) {
+          response = addStudent(data);
+        } else {
+          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
+        }
+      } else if (action === "searchTeachers") {
+        if (verifyToken(authContact, authToken)) {
+          response = searchTeachers(data);
+        } else {
+          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
+        }
+      } else if (action === "inviteTeacher") {
+        if (verifyToken(authContact, authToken)) {
+          response = inviteTeacher(data);
+        } else {
+          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
+        }
+      } else if (action === "unshareTeacher") {
+        if (verifyToken(authContact, authToken)) {
+          response = unshareTeacher(data);
+        } else {
+          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
+        }
+      } else if (action === "getSchoolTeachers") {
+        if (verifyToken(authContact, authToken)) {
+          response = getSchoolTeachers(data);
+        } else {
+          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
+        }
+      } else if (action === "getTeacherInvitations") {
+        if (verifyToken(authContact, authToken)) {
+          response = getTeacherInvitations(data);
+        } else {
+          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
+        }
+      } else if (action === "respondInvitation") {
+        if (verifyToken(authContact, authToken)) {
+          response = respondInvitation(data);
+        } else {
+          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
+        }
+      }
+    } finally {
+      lock.releaseLock();
+    }
+    
+  } catch (error) {
+    response = { success: false, message: error.toString() };
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify(response))
+                       .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doOptions(e) {
+  return ContentService.createTextOutput("")
+                       .setMimeType(ContentService.MimeType.TEXT);
+}
+function doGet(e) { return ContentService.createTextOutput("تطبيق الخادم يعمل بنجاح!"); }
+
+// ---------------------------------
+
+function getOrCreateSheet(sheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    if (sheetName === "Users") {
+      sheet.appendRow(["ID", "FirstName", "LastName", "Contact", "Role", "PasswordHash", "CreatedAt", "Token", "SchoolName"]);
+    } else if (sheetName === "Students") {
+      sheet.appendRow(["ID", "OwnerContact", "StudentName", "Class", "Section", "ParentNumber", "CreatedAt", "SchoolName"]);
+    } else if (sheetName === "SchoolTeachers") {
+      sheet.appendRow(["ID", "AdminContact", "SchoolName", "TeacherContact", "TeacherName", "Status", "CreatedAt", "AdminName"]);
+    }
+  }
+  return sheet;
 }
 
 function registerUser(data) {
