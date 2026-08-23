@@ -32,12 +32,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const teacherReasonsGrid = document.getElementById('teacherReasonsGrid');
     const reasonRadios = document.querySelectorAll('input[name="reason"]');
     const teacherReasonRadios = document.querySelectorAll('input[name="teacher_reason"]');
-    
+
     // --- Mode Switcher ---
     const modeSwitcherContainer = document.getElementById('modeSwitcherContainer');
     const modeStudentsBtn = document.getElementById('modeStudentsBtn');
     const modeTeachersBtn = document.getElementById('modeTeachersBtn');
-    
+
     const messagePreview = document.getElementById('messagePreview');
     const previewTime = document.getElementById('previewTime');
     const sendBtn = document.getElementById('sendBtn');
@@ -52,12 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainAppContainer = document.getElementById('mainAppContainer');
     const showRegisterLink = document.getElementById('showRegisterLink');
     const showLoginLink = document.getElementById('showLoginLink');
-    
+
     // Login Elements
     const loginUsername = document.getElementById('loginUsername');
     const loginPassword = document.getElementById('loginPassword');
     const loginSubmitBtn = document.getElementById('loginSubmitBtn');
-    
+
     // Register Elements
     const regFirstName = document.getElementById('regFirstName');
     const regLastName = document.getElementById('regLastName');
@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const regConfirmPassword = document.getElementById('regConfirmPassword');
     const registerSubmitBtn = document.getElementById('registerSubmitBtn');
     const logoutBtn = document.getElementById('logoutBtn');
-    
+
     // School Badge & Teacher Search DOM Elements
     const userSchoolBadge = document.getElementById('userSchoolBadge');
     const displaySchoolName = document.getElementById('displaySchoolName');
@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const manageStudentsBtn = document.getElementById('manageStudentsBtn');
     const bulkSelectBtn = document.getElementById('bulkSelectBtn');
     const cancelBulkBtn = document.getElementById('cancelBulkBtn');
-    
+
     const manageStudentsModal = document.getElementById('manageStudentsModal');
     const closeManageModal = document.getElementById('closeManageModal');
     const tabAddSingle = document.getElementById('tabAddSingle');
@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const customDialogOkBtn = document.getElementById('customDialogOkBtn');
 
     // --- Auth Logic ---
-    
+
     // Check if user is logged in
     const checkAuth = () => {
         const storedUser = localStorage.getItem('nama_currentUser');
@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- API Configuration ---
     // ضع رابط تطبيق الويب الخاص بـ Google Apps Script هنا
-    const API_URL = "https://script.google.com/macros/s/AKfycbztl4GZHrq0XWbQYCrilc9RfiS91TLMFL6hlYAxNCFNcgs9Mm38cChbcTSF8UQVc15d7w/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbyT1lK_SL4CqPoHWTG240PWqeVoUr0AZ8fK9F5b4wSdBID_qeSJuFAyGG2bHnyVHaLQ/exec";
 
     // --- Loading State Helper ---
     const setLoading = (btn, isLoading, originalText = '') => {
@@ -210,14 +210,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // --- Datalist & Options Refresh Helper ---
+    const refreshDatalist = () => {
+        if (!studentsListDatalist) return;
+        studentsListDatalist.innerHTML = '';
+        const currentData = currentMode === 'students' ? appStudents : appTeachers;
+        if (Array.isArray(currentData)) {
+            currentData.forEach(person => {
+                if (person && person.name) {
+                    const option = document.createElement('option');
+                    option.value = person.name;
+                    studentsListDatalist.appendChild(option);
+                }
+            });
+        }
+    };
+
     const applyRolePermissions = async () => {
         if (!currentUser) return;
-        
+
         // Update School Badge & User Info in Header
         if (userSchoolBadge && displaySchoolName) {
             userSchoolBadge.style.display = 'flex';
             displaySchoolName.textContent = currentUser.schoolName || (currentLang === 'ckb' ? 'قوتابخانە' : (currentLang === 'ku' ? 'قوتابخانە' : (currentLang === 'en' ? 'School' : 'المدرسة')));
-            let roleTitle = currentUser.role === 'admin' ? 
+            let roleTitle = currentUser.role === 'admin' ?
                 (currentLang === 'ckb' ? 'بەڕێوەبەر' : (currentLang === 'ku' ? 'رێڤەبەر' : (currentLang === 'en' ? 'Principal' : 'مدير'))) :
                 (currentLang === 'ckb' ? 'مامۆستا' : (currentLang === 'ku' ? 'مامۆستا' : (currentLang === 'en' ? 'Teacher' : 'معلم')));
             displayUserRole.textContent = roleTitle;
@@ -241,13 +257,13 @@ document.addEventListener('DOMContentLoaded', () => {
             modeTeachersBtn.style.color = 'var(--text-secondary)';
             studentReasonsGrid.style.display = 'grid';
             teacherReasonsGrid.style.display = 'none';
-            
+
             document.getElementById('lblStudentName').setAttribute('data-i18n', 'lbl_student_name');
             studentNameInput.setAttribute('data-i18n-ph', 'ph_student_name');
             document.getElementById('lblParentNumber').setAttribute('data-i18n', 'lbl_parent_number');
             parentNumberInput.setAttribute('data-i18n-ph', 'ph_parent_number');
             document.getElementById('classSectionGroup').style.display = 'grid';
-            
+
             if (typeof applyTranslations === 'function') setTimeout(applyTranslations, 100);
             if (typeof updatePreview === 'function') setTimeout(updatePreview, 100);
 
@@ -255,18 +271,32 @@ document.addEventListener('DOMContentLoaded', () => {
             loadTeacherInvitations();
         }
 
-        // Fetch students for this user from Google Sheets
+        // --- Fast Local Cache (0ms Instant Rendering) ---
+        if (currentUser) {
+            const cacheKey = 'nama_cached_students_' + (currentUser.contact || '');
+            const cachedStudents = localStorage.getItem(cacheKey);
+            if (cachedStudents) {
+                try {
+                    appStudents = JSON.parse(cachedStudents);
+                    refreshDatalist();
+                } catch (e) {
+                    console.error('Error parsing cached students:', e);
+                }
+            }
+        }
+
+        // Fetch fresh students asynchronously in background without blocking UI
         if (API_URL) {
             try {
-                // تمرير التوکن للحماية
-                const res = await callApi('getStudents', { 
+                const res = await callApi('getStudents', {
                     contact: currentUser.contact,
-                    token: currentUser.token 
+                    token: currentUser.token
                 });
                 if (res.success && res.students) {
                     appStudents = res.students;
+                    const cacheKey = 'nama_cached_students_' + (currentUser.contact || '');
+                    localStorage.setItem(cacheKey, JSON.stringify(appStudents));
                     refreshDatalist();
-                    renderStudentsTable();
                 } else if (res.message && res.message.includes('غير صالحة')) {
                     // Token expired or invalid
                     localStorage.removeItem('nama_currentUser');
@@ -274,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     showDialog('انتهت الجلسة لأسباب أمنية. يرجى تسجيل الدخول مجدداً.');
                 }
             } catch (err) {
-                console.error('Failed to load students:', err);
+                console.error('Failed to load students in background:', err);
             }
         }
     };
@@ -328,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setLoading(registerSubmitBtn, true);
         try {
             const res = await callApi('register', { firstName, lastName, schoolName, contact, role, password });
-            
+
             if (res.success) {
                 let successMsg = 'تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول.';
                 if (currentLang === 'ckb') successMsg = 'هەژمار بە سەرکەوتوویی دروستکرا! ئێستا دەتوانیت بچیتە ژوورەوە.';
@@ -359,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const contact = sanitizeHtml(loginUsername.value.trim());
         const password = loginPassword.value;
-        
+
         if (!contact || !password) {
             showDialog('يرجى إدخال اسم المستخدم وكلمة المرور.');
             return;
@@ -401,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const customDialogMessage = document.getElementById('customDialogMessage');
     const customDialogConfirmBtn = document.getElementById('customDialogConfirmBtn');
     const customDialogCancelBtn = document.getElementById('customDialogCancelBtn');
-    
+
     let dialogConfirmCallback = null;
     let dialogCancelCallback = null;
 
@@ -414,10 +444,10 @@ document.addEventListener('DOMContentLoaded', () => {
             customDialogCancelBtn.style.display = 'none';
             customDialogTitleText.textContent = currentLang === 'ckb' ? 'ئاگاداری' : (currentLang === 'ku' ? 'ئاگەهداری' : (currentLang === 'en' ? 'Alert' : 'تنبيه'));
         }
-        
+
         dialogConfirmCallback = onConfirm;
         dialogCancelCallback = onCancel;
-        
+
         customDialogModal.style.display = 'block';
     };
 
@@ -462,17 +492,6 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('appTeachers', JSON.stringify(appTeachers));
         }
         refreshDatalist();
-        renderStudentsTable();
-    };
-
-    const refreshDatalist = () => {
-        studentsListDatalist.innerHTML = '';
-        const currentData = currentMode === 'students' ? appStudents : appTeachers;
-        currentData.forEach(person => {
-            const option = document.createElement('option');
-            option.value = person.name;
-            studentsListDatalist.appendChild(option);
-        });
     };
 
     // --- Manage Students Logic ---
@@ -499,24 +518,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const sec = sanitizeHtml(document.getElementById('newStudentSection').value.trim());
         const num = sanitizeHtml(document.getElementById('newStudentNumber').value.trim());
 
-        if(!name || !num) return showDialog('يجب إدخال الاسم ورقم الهاتف على الأقل.');
+        if (!name || !num) return showDialog('يجب إدخال الاسم ورقم الهاتف على الأقل.');
 
         const newStudent = { name, class: cls, section: sec, parentNumber: num };
 
         if (API_URL && currentUser && currentMode === 'students') {
             setLoading(saveSingleStudentBtn, true);
             try {
-                const res = await callApi('addStudent', { 
+                const res = await callApi('addStudent', {
                     contact: currentUser.contact,
                     token: currentUser.token,
-                    student: newStudent 
+                    student: newStudent
                 });
                 if (res.success) {
                     appStudents.push(newStudent);
                     refreshDatalist();
                     renderStudentsTable();
                     closeModal(manageStudentsModal);
-                    
+
                     document.getElementById('newStudentName').value = '';
                     document.getElementById('newStudentClass').value = '';
                     document.getElementById('newStudentSection').value = '';
@@ -539,7 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentData = currentMode === 'students' ? appStudents : appTeachers;
             currentData.push(newStudent);
             saveDatabase();
-            
+
             document.getElementById('newStudentName').value = '';
             document.getElementById('newStudentClass').value = '';
             document.getElementById('newStudentSection').value = '';
@@ -569,7 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const defaultClass = document.getElementById('bulkDefaultClass').value.trim();
         const defaultSection = document.getElementById('bulkDefaultSection').value.trim();
 
-        if(!text) return;
+        if (!text) return;
 
         const rows = text.split('\n');
         let addedCount = 0;
@@ -578,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cols = row.split('\t'); // Excel copy uses tabs
             if (cols.length >= 1) {
                 const name = cols[0] ? cols[0].trim() : '';
-                
+
                 let cls = defaultClass;
                 let sec = defaultSection;
                 let num = '';
@@ -623,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td dir="ltr">${student.parentNumber}</td>
                 <td><button onclick="window.deleteStudent(${index}); event.stopPropagation();"><i class="fa-solid fa-trash"></i></button></td>
             `;
-            
+
             tr.addEventListener('click', (e) => {
                 if (e.target.tagName.toLowerCase() === 'input' && e.target.type === 'checkbox') return;
                 if (e.target.closest('button')) return;
@@ -639,10 +658,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.student-row-checkbox').forEach(cb => {
             cb.addEventListener('change', updateDeleteSelectedBtnVisibility);
         });
-        
+
         const selectAllCb = document.getElementById('selectAllTableCheckbox');
         if (selectAllCb) selectAllCb.checked = false;
-        
+
         updateDeleteSelectedBtnVisibility();
     };
 
@@ -676,10 +695,10 @@ document.addEventListener('DOMContentLoaded', () => {
         deleteSelectedBtn.addEventListener('click', () => {
             const checkedBoxes = document.querySelectorAll('.student-row-checkbox:checked');
             if (checkedBoxes.length === 0) return;
-            
+
             let msg = translations[currentLang].msg_confirm_delete_selected || `هل أنت متأكد من حذف ${checkedBoxes.length} طلاب؟`;
             msg = msg.replace('{count}', checkedBoxes.length);
-            
+
             showDialog(msg, true, () => {
                 const currentData = currentMode === 'students' ? appStudents : appTeachers;
                 const indicesToDelete = Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute('data-index'))).sort((a, b) => b - a);
@@ -718,7 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBulkCheckboxes('');
         bulkSelectModal.style.display = 'block';
     };
-    
+
     const closeBulkModalFn = () => bulkSelectModal.style.display = 'none';
 
     const renderBulkCheckboxes = (filterText) => {
@@ -732,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const matchSection = s.section && s.section.toLowerCase().includes(lowerFilter);
             return matchName || matchClass || matchSection;
         });
-        
+
         filtered.forEach(student => {
             const isChecked = selectedBulkStudents.some(s => s.name === student.name);
             const label = document.createElement('label');
@@ -772,13 +791,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const matchSection = s.section && s.section.toLowerCase().includes(filterText);
                 return matchName || matchClass || matchSection;
             });
-            
+
             filtered.forEach(student => {
                 if (!selectedBulkStudents.some(s => s.name === student.name)) {
                     selectedBulkStudents.push(student);
                 }
             });
-            
+
             renderBulkCheckboxes(searchBulk.value);
         });
     }
@@ -834,7 +853,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === bulkSelectModal) {
             bulkSelectModal.style.display = 'none';
         }
-        
+
         // Handle dropdown click outside
         if (reasonModal && reasonModal.style.display === 'block') {
             if (!reasonModal.contains(e.target) && e.target !== openReasonModalBtn && !openReasonModalBtn.contains(e.target)) {
@@ -859,7 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update User Role and School in Header
         if (currentUser && displayUserRole) {
-            let roleTitle = currentUser.role === 'admin' ? 
+            let roleTitle = currentUser.role === 'admin' ?
                 (dict.role_admin || (currentLang === 'ckb' ? 'بەڕێوەبەر' : (currentLang === 'ku' ? 'رێڤەبەر' : (currentLang === 'en' ? 'Principal' : 'مدير')))) :
                 (dict.role_teacher || (currentLang === 'ckb' ? 'مامۆستا' : (currentLang === 'ku' ? 'مامۆستا' : (currentLang === 'en' ? 'Teacher' : 'معلم'))));
             displayUserRole.textContent = roleTitle;
@@ -949,7 +968,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleStudentSelection = () => {
-        if(isBulkMode) return;
+        if (isBulkMode) return;
         const selectedName = studentNameInput.value;
         const currentData = currentMode === 'students' ? appStudents : appTeachers;
         const person = currentData.find(s => s.name === selectedName);
@@ -967,13 +986,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const selector = currentMode === 'students' ? 'input[name="reason"]:checked' : 'input[name="teacher_reason"]:checked';
         const selectedReasonElement = document.querySelector(selector);
         if (!selectedReasonElement) return "";
-        
+
         return getLocalizedMessageTemplate(currentLang, selectedReasonElement.value, studentName, studentClass, studentSection, date, time);
     };
 
     const updatePreview = () => {
         if (isBulkMode) {
-            if(selectedBulkStudents.length > 0) {
+            if (selectedBulkStudents.length > 0) {
                 const firstStudent = selectedBulkStudents[0];
                 const msg = generateMessageForStudent(firstStudent.name, firstStudent.class, firstStudent.section);
                 let bulkPrefix = `[وضع الإرسال الجماعي لـ ${selectedBulkStudents.length} طلاب]\n\nمثال للرسالة الأولى:\n\n${msg}`;
@@ -990,7 +1009,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const msg = generateMessageForStudent(studentNameInput.value, studentClassInput.value, studentSectionInput.value);
             messagePreview.innerText = msg;
         }
-        
+
         // Update display if reason changes
         const selector = currentMode === 'students' ? 'input[name="reason"]:checked' : 'input[name="teacher_reason"]:checked';
         const selectedReasonElement = document.querySelector(selector);
@@ -1056,9 +1075,9 @@ document.addEventListener('DOMContentLoaded', () => {
         queueProgressText.textContent = queueTxt;
         queueProgressBar.style.width = `${progressPercentage}%`;
         queueStudentName.textContent = student.name;
-        
+
         queueNextBtn.disabled = true;
-        
+
         if (queueIndex >= totalNum) {
             queueModal.style.display = 'none';
             let finishMsg = 'تم الانتهاء من الإرسال لجميع الطلاب المحددين!';
@@ -1072,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', () => {
     queueSendBtn.addEventListener('click', () => {
         const student = selectedBulkStudents[queueIndex];
         const number = formatPhoneNumber(student.parentNumber);
-        
+
         if (number) {
             const message = generateMessageForStudent(student.name, student.class, student.section);
             // Use api.whatsapp.com for better Windows Desktop app compatibility
@@ -1080,10 +1099,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             showDialog(`الطالب ${student.name} لا يملك رقم هاتف صالح.`);
         }
-        
+
         // Enable next button after clicking send
         queueNextBtn.disabled = false;
-        
+
         // If it's the last student, change Next button text to Finish
         if (queueIndex === selectedBulkStudents.length - 1) {
             queueNextBtn.textContent = "إنهاء";
@@ -1128,7 +1147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePreview();
         previewTime.textContent = eventTimeInput.value || now.toTimeString().split(' ')[0].substring(0, 5);
     });
-    
+
     reasonRadios.forEach(radio => {
         radio.addEventListener('change', (e) => {
             updatePreview();
@@ -1150,7 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     manageStudentsBtn.addEventListener('click', openManageModal);
     closeManageModal.addEventListener('click', closeManageModalFn);
-    
+
     bulkSelectBtn.addEventListener('click', openBulkModal);
     closeBulkModal.addEventListener('click', closeBulkModalFn);
 
@@ -1163,47 +1182,47 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Mode Switcher Logic ---
     const setMode = (mode) => {
         currentMode = mode;
-        
+
         if (mode === 'students') {
             modeStudentsBtn.classList.add('active');
             modeStudentsBtn.style.background = 'var(--accent-color)';
             modeStudentsBtn.style.color = 'white';
-            
+
             modeTeachersBtn.classList.remove('active');
             modeTeachersBtn.style.background = 'transparent';
             modeTeachersBtn.style.color = 'var(--text-secondary)';
-            
+
             studentReasonsGrid.style.display = 'flex';
             teacherReasonsGrid.style.display = 'none';
-            
+
             document.getElementById('classSectionGroup').style.display = 'grid';
             document.getElementById('newStudentClass').style.display = 'inline-block';
             document.getElementById('newStudentSection').style.display = 'inline-block';
             document.getElementById('bulkClassSectionGroup').style.display = 'grid';
-            
+
             // update i18n keys
             document.getElementById('lblStudentName').setAttribute('data-i18n', 'lbl_student_name');
             studentNameInput.setAttribute('data-i18n-ph', 'ph_student_name');
             document.getElementById('lblParentNumber').setAttribute('data-i18n', 'lbl_parent_number');
             parentNumberInput.setAttribute('data-i18n-ph', 'ph_parent_number');
-            
+
             document.querySelector('.wa-name').setAttribute('data-i18n', 'wa_name');
-            
+
             manageStudentsBtn.querySelector('span').setAttribute('data-i18n', 'btn_manage_students');
             document.querySelector('#manageStudentsModal h2').setAttribute('data-i18n', 'modal_manage_title');
-            
+
             document.getElementById('tabAddSingle').setAttribute('data-i18n', 'tab_add_single');
             document.getElementById('tabAddBulk').setAttribute('data-i18n', 'tab_add_bulk');
             document.querySelector('h3[data-i18n^="title_saved_"]').setAttribute('data-i18n', 'title_saved_students');
             document.querySelector('.hint-text').setAttribute('data-i18n', 'hint_excel');
-            
+
             document.getElementById('newStudentName').setAttribute('data-i18n-ph', 'ph_student_name');
             document.getElementById('newStudentNumber').setAttribute('data-i18n-ph', 'ph_parent_number');
-            
+
             const thClass = document.querySelector('[data-i18n="th_class"]');
-            if(thClass) thClass.style.display = '';
+            if (thClass) thClass.style.display = '';
             const thSection = document.querySelector('[data-i18n="th_section"]');
-            if(thSection) thSection.style.display = '';
+            if (thSection) thSection.style.display = '';
 
             const checkedStudentReason = document.querySelector('input[name="reason"]:checked');
             if (checkedStudentReason) {
@@ -1213,56 +1232,56 @@ document.addEventListener('DOMContentLoaded', () => {
             modeTeachersBtn.classList.add('active');
             modeTeachersBtn.style.background = 'var(--accent-color)';
             modeTeachersBtn.style.color = 'white';
-            
+
             modeStudentsBtn.classList.remove('active');
             modeStudentsBtn.style.background = 'transparent';
             modeStudentsBtn.style.color = 'var(--text-secondary)';
-            
+
             studentReasonsGrid.style.display = 'none';
             teacherReasonsGrid.style.display = 'flex';
-            
+
             document.getElementById('classSectionGroup').style.display = 'none';
             document.getElementById('newStudentClass').style.display = 'none';
             document.getElementById('newStudentSection').style.display = 'none';
             document.getElementById('bulkClassSectionGroup').style.display = 'none';
-            
+
             // update i18n keys
             document.getElementById('lblStudentName').setAttribute('data-i18n', 'lbl_teacher_name');
             studentNameInput.setAttribute('data-i18n-ph', 'ph_teacher_name');
             document.getElementById('lblParentNumber').setAttribute('data-i18n', 'lbl_teacher_number');
             parentNumberInput.setAttribute('data-i18n-ph', 'ph_teacher_number');
-            
+
             document.querySelector('.wa-name').setAttribute('data-i18n', 'wa_teacher_name');
-            
+
             manageStudentsBtn.querySelector('span').setAttribute('data-i18n', 'btn_manage_teachers');
             document.querySelector('#manageStudentsModal h2').setAttribute('data-i18n', 'modal_manage_teachers_title');
-            
+
             document.getElementById('tabAddSingle').setAttribute('data-i18n', 'tab_add_single_teacher');
             document.getElementById('tabAddBulk').setAttribute('data-i18n', 'tab_add_bulk_teacher');
             document.querySelector('h3[data-i18n^="title_saved_"]').setAttribute('data-i18n', 'title_saved_teachers');
             document.querySelector('.hint-text').setAttribute('data-i18n', 'hint_excel_teacher');
             document.querySelector('[data-i18n="th_class"]').style.display = 'none';
             document.querySelector('[data-i18n="th_section"]').style.display = 'none';
-            
+
             document.getElementById('newStudentName').setAttribute('data-i18n-ph', 'ph_teacher_name');
             document.getElementById('newStudentNumber').setAttribute('data-i18n-ph', 'ph_teacher_number');
-            
+
             const checkedTeacherReason = document.querySelector('input[name="teacher_reason"]:checked');
             if (checkedTeacherReason) {
                 selectedReasonDisplay.innerHTML = checkedTeacherReason.nextElementSibling.innerHTML;
             }
         }
-        
+
         applyTranslations();
         refreshDatalist();
         renderStudentsTable();
-        
+
         // clear inputs when switching mode
         studentNameInput.value = '';
         studentClassInput.value = '';
         studentSectionInput.value = '';
         parentNumberInput.value = '';
-        
+
         updatePreview();
     };
 
@@ -1270,16 +1289,37 @@ document.addEventListener('DOMContentLoaded', () => {
     modeTeachersBtn.addEventListener('click', () => setMode('teachers'));
 
     // --- Teacher Search & Invite Logic ---
-    const openSearchTeachersModal = () => {
+    let teachersPollInterval = null;
+
+    const openSearchTeachersModal = async () => {
         if (!currentUser) return;
         if (modalCurrentSchoolName) modalCurrentSchoolName.textContent = currentUser.schoolName || '...';
         if (searchTeachersModal) searchTeachersModal.style.display = 'block';
-        loadSchoolTeachers();
+        
+        // Immediate local render first
+        renderMySchoolTeachers();
         performTeacherSearch(searchTeacherInput ? searchTeacherInput.value.trim() : '');
+
+        // Fetch fresh state from server immediately
+        await loadSchoolTeachers();
+
+        // Start live real-time sync while modal is open (every 3.5s)
+        if (teachersPollInterval) clearInterval(teachersPollInterval);
+        teachersPollInterval = setInterval(() => {
+            if (searchTeachersModal && searchTeachersModal.style.display === 'block') {
+                loadSchoolTeachers();
+            } else {
+                if (teachersPollInterval) clearInterval(teachersPollInterval);
+            }
+        }, 3500);
     };
 
     const closeSearchTeachersModalFn = () => {
         if (searchTeachersModal) searchTeachersModal.style.display = 'none';
+        if (teachersPollInterval) {
+            clearInterval(teachersPollInterval);
+            teachersPollInterval = null;
+        }
     };
 
     if (searchTeachersBtn) {
@@ -1298,12 +1338,13 @@ document.addEventListener('DOMContentLoaded', () => {
             performTeacherSearch(searchTeacherInput ? searchTeacherInput.value.trim() : '');
         });
 
-        tabMySchoolTeachers.addEventListener('click', () => {
+        tabMySchoolTeachers.addEventListener('click', async () => {
             tabMySchoolTeachers.classList.add('active');
             tabSearchTeachers.classList.remove('active');
             if (panelMySchoolTeachers) panelMySchoolTeachers.style.display = 'block';
             if (panelSearchTeachers) panelSearchTeachers.style.display = 'none';
             renderMySchoolTeachers();
+            await loadSchoolTeachers();
         });
     }
 
@@ -1345,49 +1386,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res.success && res.teachers) {
                     localSchoolTeachers = res.teachers;
                     saveStoredSchoolTeachers(localSchoolTeachers);
+                    renderMySchoolTeachers();
                 }
             } catch (err) {
                 console.error('Failed to fetch school teachers:', err);
             }
+        } else {
+            renderMySchoolTeachers();
         }
-        renderMySchoolTeachers();
     };
 
-    const performTeacherSearch = async (query = '') => {
+    let cachedAllTeachers = [];
+    try {
+        const stored = localStorage.getItem('nama_cached_all_teachers');
+        if (stored) cachedAllTeachers = JSON.parse(stored);
+    } catch (e) {}
+
+    const renderTeacherResultsDOM = (results) => {
         if (!teachersSearchResults) return;
         const dict = translations[currentLang] || translations.ku;
-        teachersSearchResults.innerHTML = '<div style="text-align: center; padding: 1.5rem; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> ...</div>';
-
-        let results = [];
-        if (API_URL && currentUser) {
-            try {
-                const res = await callApi('searchTeachers', {
-                    contact: currentUser.contact,
-                    token: currentUser.token,
-                    query: query
-                });
-                if (res.success && res.teachers) {
-                    results = res.teachers;
-                }
-            } catch (err) {
-                console.error('Search API error, fallback to local:', err);
-            }
-        }
-
-        // Local sample and registered teachers fallback
-        if (results.length === 0) {
-            const baseTeachers = [
-                { id: "t1", name: "مامۆستا کاروان علی", contact: "+9647501234567", schoolName: currentUser ? currentUser.schoolName : "ئامادەیی زانیاری" },
-                { id: "t2", name: "مامۆستا شنۆ ئەحمەد", contact: "+9647507654321", schoolName: "قوتابخانەی نەورۆز" },
-                { id: "t3", name: "أ. خليل إبراهيم مصطفى", contact: "+9647509988776", schoolName: "مدرسة المستقبل" },
-                { id: "t4", name: "مامۆستا دیار کامەران", contact: "+9647503344556", schoolName: currentUser ? currentUser.schoolName : "قوتابخانەی ئامادەیی" }
-            ];
-            const q = query.toLowerCase().trim();
-            results = baseTeachers.filter(t => 
-                !q || t.name.toLowerCase().includes(q) || t.contact.includes(q) || (t.schoolName && t.schoolName.toLowerCase().includes(q))
-            );
-        }
-
         const invitedContacts = new Set(localSchoolTeachers.map(t => t.contact));
 
         teachersSearchResults.innerHTML = '';
@@ -1403,11 +1420,53 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    const filterTeachersLocally = (query, list) => {
+        const q = query.toLowerCase().trim();
+        if (!q) return list;
+        return list.filter(t => 
+            (t.name && t.name.toLowerCase().includes(q)) || 
+            (t.contact && t.contact.includes(q)) || 
+            (t.schoolName && t.schoolName.toLowerCase().includes(q))
+        );
+    };
+
+    const performTeacherSearch = async (query = '') => {
+        if (!teachersSearchResults) return;
+
+        // 1. Instant 0ms Local Rendering
+        if (cachedAllTeachers.length > 0) {
+            const instantResults = filterTeachersLocally(query, cachedAllTeachers);
+            renderTeacherResultsDOM(instantResults);
+        } else {
+            teachersSearchResults.innerHTML = '<div style="text-align: center; padding: 1.5rem; color: var(--text-secondary);"><i class="fa-solid fa-spinner fa-spin"></i> ...</div>';
+        }
+
+        // 2. Fast background sync from Google Sheets
+        if (API_URL && currentUser) {
+            try {
+                const res = await callApi('searchTeachers', {
+                    contact: currentUser.contact,
+                    token: currentUser.token,
+                    query: query
+                });
+                if (res.success && res.teachers) {
+                    if (!query) {
+                        cachedAllTeachers = res.teachers;
+                        localStorage.setItem('nama_cached_all_teachers', JSON.stringify(cachedAllTeachers));
+                    }
+                    renderTeacherResultsDOM(res.teachers);
+                }
+            } catch (err) {
+                console.error('Search API background sync error:', err);
+            }
+        }
+    };
+
     const renderMySchoolTeachers = () => {
         if (!mySchoolTeachersList) return;
         const dict = translations[currentLang] || translations.ku;
         mySchoolTeachersList.innerHTML = '';
-        
+
         if (localSchoolTeachers.length === 0) {
             mySchoolTeachersList.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--text-secondary);"><i class="fa-solid fa-users" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i> ${currentLang === 'ckb' ? 'هیچ مامۆستایەک پەیوەست نەکراوە تا ئێستا.' : (currentLang === 'ku' ? 'چ مامۆستا نەهاتینە پەیوەستکرن هەتا نوکە.' : 'لم يتم ربط أي معلمين بهذه المدرسة حتى الآن.')}</div>`;
             return;
@@ -1676,7 +1735,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (studRes.success && studRes.students) {
                         appStudents = studRes.students;
                         refreshDatalist();
-                        renderStudentsTable();
                     }
                 } else {
                     showDialog(dict.msg_invite_rejected || res.message);

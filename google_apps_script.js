@@ -1,4 +1,33 @@
-// نسخة محمية: تشفير كلمات المرور، نظام التحقق (Tokens)، وإدارة المدارس ونظام إشعارات ودعوات المعلمين
+// نسخة محمية وفائقة السرعة: تشفير، توكنز، وتخزين مؤقت عالي الأداء في الذاكرة (RAM Caching)
+
+// --- دوال التسريع والتخزين السريع في ذاكرة الخادم ---
+function getMemCache(key) {
+  try {
+    const cached = CacheService.getScriptCache().get(key);
+    return cached ? JSON.parse(cached) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setMemCache(key, data, seconds) {
+  try {
+    const s = JSON.stringify(data);
+    if (s.length < 100000) {
+      CacheService.getScriptCache().put(key, s, seconds || 300);
+    }
+  } catch (e) {}
+}
+
+function clearMemCache(keys) {
+  try {
+    if (Array.isArray(keys)) {
+      CacheService.getScriptCache().removeAll(keys);
+    } else {
+      CacheService.getScriptCache().remove(keys);
+    }
+  } catch (e) {}
+}
 
 // دالة توحيد وتنظيف أرقام الهواتف والبريد الإلكتروني
 function normalizeContact(str) {
@@ -256,9 +285,13 @@ function loginUser(data) {
 }
 
 function getStudents(data) {
+  const normUserContact = normalizeContact(data.contact);
+  const cacheKey = "students_" + normUserContact;
+  const cached = getMemCache(cacheKey);
+  if (cached) return cached;
+
   const usersSheet = getOrCreateSheet("Users");
   const userValues = usersSheet.getDataRange().getValues();
-  const normUserContact = normalizeContact(data.contact);
   let userRole = "admin";
 
   for (let i = 1; i < userValues.length; i++) {
@@ -295,7 +328,9 @@ function getStudents(data) {
       });
     }
   }
-  return { success: true, students: students };
+  const result = { success: true, students: students };
+  setMemCache(cacheKey, result, 180);
+  return result;
 }
 
 function addStudent(data) {
@@ -310,17 +345,23 @@ function addStudent(data) {
     new Date(),
     data.schoolName || ""
   ]);
+  clearMemCache("students_" + normalizeContact(data.contact));
   return { success: true, message: "تم إضافة الطالب بنجاح." };
 }
 
 // --- ميزات البحث والدعوة للمعلمين والإشعارات ---
 
 function searchTeachers(data) {
+  const normAdminContact = normalizeContact(data.contact);
+  const query = (data.query || "").toLowerCase().trim();
+  const cacheKey = "search_teachers_" + normAdminContact + "_" + query;
+  const cached = getMemCache(cacheKey);
+  if (cached) return cached;
+
   const usersSheet = getOrCreateSheet("Users");
   const userValues = usersSheet.getDataRange().getValues();
   const stSheet = getOrCreateSheet("SchoolTeachers");
   const stValues = stSheet.getDataRange().getValues();
-  const normAdminContact = normalizeContact(data.contact);
 
   // المعلمون وحالات دعوتهم لدى هذا المدير
   const teacherStatusMap = {};
@@ -330,7 +371,6 @@ function searchTeachers(data) {
     }
   }
 
-  const query = (data.query || "").toLowerCase().trim();
   const normQuery = normalizeContact(query);
   const teachers = [];
 
@@ -363,7 +403,9 @@ function searchTeachers(data) {
     }
   }
 
-  return { success: true, teachers: teachers };
+  const result = { success: true, teachers: teachers };
+  setMemCache(cacheKey, result, 120);
+  return result;
 }
 
 function inviteTeacher(data) {
@@ -371,6 +413,12 @@ function inviteTeacher(data) {
   const values = stSheet.getDataRange().getValues();
   const normAdminContact = normalizeContact(data.adminContact);
   const normTeacherContact = normalizeContact(data.teacherContact);
+
+  clearMemCache([
+    "school_teachers_" + normAdminContact,
+    "search_teachers_" + normAdminContact + "_",
+    "students_" + normTeacherContact
+  ]);
 
   // فحص إذا كان الربط موجوداً مسبقاً
   for (let i = 1; i < values.length; i++) {
@@ -402,6 +450,12 @@ function unshareTeacher(data) {
   const normAdminContact = normalizeContact(data.adminContact);
   const normTeacherContact = normalizeContact(data.teacherContact);
 
+  clearMemCache([
+    "school_teachers_" + normAdminContact,
+    "search_teachers_" + normAdminContact + "_",
+    "students_" + normTeacherContact
+  ]);
+
   for (let i = 1; i < values.length; i++) {
     if (normalizeContact(values[i][1]) === normAdminContact && normalizeContact(values[i][3]) === normTeacherContact) {
       stSheet.getRange(i + 1, 6).setValue("rejected");
@@ -413,9 +467,13 @@ function unshareTeacher(data) {
 }
 
 function getSchoolTeachers(data) {
+  const normContact = normalizeContact(data.contact);
+  const cacheKey = "school_teachers_" + normContact;
+  const cached = getMemCache(cacheKey);
+  if (cached) return cached;
+
   const stSheet = getOrCreateSheet("SchoolTeachers");
   const values = stSheet.getDataRange().getValues();
-  const normContact = normalizeContact(data.contact);
   const teachers = [];
 
   for (let i = 1; i < values.length; i++) {
@@ -431,7 +489,9 @@ function getSchoolTeachers(data) {
     }
   }
 
-  return { success: true, teachers: teachers };
+  const result = { success: true, teachers: teachers };
+  setMemCache(cacheKey, result, 45);
+  return result;
 }
 
 // جلب الدعوات المعلقة الخاصة بالمعلم

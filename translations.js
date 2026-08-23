@@ -100,7 +100,7 @@ const translations = {
         reason_t_emergency: "حالة طارئة",
 
         // --- Modals & Buttons ---
-        btn_manage_students: "إدارة الطلاب",
+        btn_manage_students: "الطلاب",
         btn_bulk_select: "تحديد متعدد",
         modal_manage_title: "إدارة الطلاب",
         tab_add_single: "إضافة طالب واحد",
@@ -166,7 +166,7 @@ const translations = {
         // School & Teacher Invite
         lbl_school_name: "<i class='fa-solid fa-school'></i> اسم المدرسة",
         ph_school_name: "أدخل اسم مدرستك",
-        btn_search_invite_teachers: "دعوة المعلمين",
+        btn_search_invite_teachers: "المعلمين",
         modal_search_teachers_title: "<i class='fa-solid fa-user-plus'></i> البحث عن معلمين ودعوتهم للمدرسة",
         ph_search_teacher: "ابحث باسم المعلم، رقم الهاتف، أو المدرسة...",
         lbl_my_school_badge: "المدرسة:",
@@ -299,7 +299,7 @@ const translations = {
         reason_t_emergency: "رەوشا ژنیشکێڤە",
 
         // --- Modals & Buttons ---
-        btn_manage_students: "رێڤەبرنا قوتابییان",
+        btn_manage_students: "قوتابی",
         btn_bulk_select: "دیارکرنا ب کۆمەل",
         modal_manage_title: "رێڤەبرنا قوتابییان",
         tab_add_single: "زێدەکرنا ئێک قوتابی",
@@ -365,7 +365,7 @@ const translations = {
         // School & Teacher Invite
         lbl_school_name: "<i class='fa-solid fa-school'></i> ناڤێ قوتابخانێ",
         ph_school_name: "ناڤێ قوتابخانا خۆ بنڤیسە",
-        btn_search_invite_teachers: "داخازکرنا مامۆستایان",
+        btn_search_invite_teachers: "مامۆستا",
         modal_search_teachers_title: "<i class='fa-solid fa-user-plus'></i> لێگەڕیان ل مامۆستایان و داخازکرنا وان",
         ph_search_teacher: "ل مامۆستایی بگەڕە ب ناڤ، ژمارە، یان قوتابخانە...",
         lbl_my_school_badge: "قوتابخانە:",
@@ -498,7 +498,7 @@ const translations = {
         reason_t_emergency: "حاڵەتی کتوپڕ و بەپەلە",
 
         // --- Modals & Buttons ---
-        btn_manage_students: "بەڕێوەبردنی قوتابیان",
+        btn_manage_students: "قوتابیان",
         btn_bulk_select: "دیاریکردنی بەکۆمەڵ",
         modal_manage_title: "بەڕێوەبردنی قوتابیان",
         tab_add_single: "زیادکردنی یەک قوتابی",
@@ -564,7 +564,7 @@ const translations = {
         // School & Teacher Invite
         lbl_school_name: "<i class='fa-solid fa-school'></i> ناوی قوتابخانە",
         ph_school_name: "ناوی قوتابخانەکەت بنووسە",
-        btn_search_invite_teachers: "بانگهێشتی مامۆستایان",
+        btn_search_invite_teachers: "مامۆستایان",
         modal_search_teachers_title: "<i class='fa-solid fa-user-plus'></i> گەڕان بەدوای مامۆستایاندا و بانگهێشتکردنیان",
         ph_search_teacher: "بەپێی ناوی مامۆستا، ژمارە، یان قوتابخانە بگەڕێ...",
         lbl_my_school_badge: "قوتابخانە:",
