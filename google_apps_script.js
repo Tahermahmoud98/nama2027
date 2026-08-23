@@ -128,34 +128,38 @@ function getOrCreateSheet(sheetName) {
 function registerUser(data) {
   const sheet = getOrCreateSheet("Users");
   const values = sheet.getDataRange().getValues();
+  const inputContact = String(data.contact || "").trim().toLowerCase();
 
   for (let i = 1; i < values.length; i++) {
-    if (values[i][3] == data.contact) {
+    const rowContact = String(values[i][3] || "").trim().toLowerCase();
+    if (rowContact == inputContact) {
       return { success: false, message: "رقم الهاتف أو البريد الإلكتروني مسجل بالفعل." };
     }
   }
 
   const token = Utilities.getUuid();
   const passwordHash = hashPassword(data.password);
+  const cleanContact = String(data.contact || "").trim();
   
   sheet.appendRow([
     Utilities.getUuid(),
-    data.firstName,
-    data.lastName,
-    data.contact,
-    data.role,
+    String(data.firstName || "").trim(),
+    String(data.lastName || "").trim(),
+    cleanContact,
+    data.role || "teacher",
     passwordHash,
     new Date(),
     token,
-    data.schoolName || ""
+    String(data.schoolName || "").trim()
   ]);
 
   return {
     success: true,
+    token: token,
     user: {
       firstName: data.firstName,
       lastName: data.lastName,
-      contact: data.contact,
+      contact: cleanContact,
       role: data.role,
       schoolName: data.schoolName || "",
       token: token
@@ -167,16 +171,20 @@ function loginUser(data) {
   const sheet = getOrCreateSheet("Users");
   const values = sheet.getDataRange().getValues();
   const inputHash = hashPassword(data.password);
+  const inputIdentifier = String(data.contact || data.username || "").trim().toLowerCase();
 
   for (let i = 1; i < values.length; i++) {
-    if (values[i][3] == data.username) {
+    const rowContact = String(values[i][3] || "").trim().toLowerCase();
+    if (rowContact == inputIdentifier) {
       if (values[i][5] == inputHash) {
         const token = Utilities.getUuid();
         sheet.getRange(i + 1, 8).setValue(token);
 
         return {
           success: true,
+          token: token,
           user: {
+            id: values[i][0],
             firstName: values[i][1],
             lastName: values[i][2],
             contact: values[i][3],

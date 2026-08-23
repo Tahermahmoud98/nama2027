@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- API Configuration ---
     // ضع رابط تطبيق الويب الخاص بـ Google Apps Script هنا
-    const API_URL = "https://script.google.com/macros/s/AKfycbwfCDzSups70aPgwQA_zt42pk3PFRX9PM5LTGg34r_egLR7gb4pm-GqGGYazjCdKHwoyA/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbyywnh7PYW_8GI3W8sC4zHagKgzGJhzA6G9xIQGzeWVl-35OTB1vFn_bCNmhNROHoaBeA/exec"; 
 
     // --- Loading State Helper ---
     const setLoading = (btn, isLoading, originalText = '') => {
@@ -367,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setLoading(loginSubmitBtn, true);
         try {
-            const res = await callApi('login', { contact, password });
+            const res = await callApi('login', { contact, username: contact, password });
             if (res.success) {
                 currentUser = res.user;
                 currentUser.token = res.token; // Save the secure session token
