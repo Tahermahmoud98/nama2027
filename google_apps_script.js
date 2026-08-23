@@ -1,4 +1,4 @@
-// نسخة محمية: تشفير كلمات المرور، نظام التحقق (Tokens)، وإدارة المدارس ومشاركة المعلمين
+// نسخة محمية: تشفير كلمات المرور، نظام التحقق (Tokens)، وإدارة المدارس ونظام إشعارات ودعوات المعلمين
 
 function doPost(e) {
   let response = { success: false, message: "Unknown action" };
@@ -48,6 +48,18 @@ function doPost(e) {
       } else if (action === "getSchoolTeachers") {
         if (verifyToken(data.contact, data.token)) {
           response = getSchoolTeachers(data);
+        } else {
+          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
+        }
+      } else if (action === "getTeacherInvitations") {
+        if (verifyToken(data.contact, data.token)) {
+          response = getTeacherInvitations(data);
+        } else {
+          response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
+        }
+      } else if (action === "respondInvitation") {
+        if (verifyToken(data.contact, data.token)) {
+          response = respondInvitation(data);
         } else {
           response = { success: false, message: "صلاحية غير صالحة. يرجى تسجيل الدخول مجدداً." };
         }
@@ -103,12 +115,11 @@ function getOrCreateSheet(sheetName) {
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);
     if (sheetName === "Users") {
-      // أعمدة المستخدمين بما فيها المدرسة
-      sheet.appendRow(["ID", "FirstName", "LastName", "Contact", "Role", "PasswordHash", "Timestamp", "Token", "SchoolName"]);
+      sheet.appendRow(["ID", "FirstName", "LastName", "Contact", "Role", "PasswordHash", "CreatedAt", "Token", "SchoolName"]);
     } else if (sheetName === "Students") {
-      sheet.appendRow(["ID", "OwnerContact", "StudentName", "Class", "Section", "ParentPhone", "Timestamp", "SchoolName"]);
+      sheet.appendRow(["ID", "OwnerContact", "StudentName", "Class", "Section", "ParentNumber", "CreatedAt", "SchoolName"]);
     } else if (sheetName === "SchoolTeachers") {
-      sheet.appendRow(["ID", "AdminContact", "SchoolName", "TeacherContact", "TeacherName", "Status", "Timestamp"]);
+      sheet.appendRow(["ID", "AdminContact", "SchoolName", "TeacherContact", "TeacherName", "Status", "CreatedAt", "AdminName"]);
     }
   }
   return sheet;
@@ -117,73 +128,80 @@ function getOrCreateSheet(sheetName) {
 function registerUser(data) {
   const sheet = getOrCreateSheet("Users");
   const values = sheet.getDataRange().getValues();
-  
+
   for (let i = 1; i < values.length; i++) {
     if (values[i][3] == data.contact) {
-      return { success: false, message: "هذا الحساب (رقم الهاتف/البريد) مسجل مسبقاً." };
+      return { success: false, message: "رقم الهاتف أو البريد الإلكتروني مسجل بالفعل." };
     }
   }
-  
-  const newId = Utilities.getUuid();
-  const timestamp = new Date();
-  const hashedPassword = hashPassword(data.password);
+
+  const token = Utilities.getUuid();
+  const passwordHash = hashPassword(data.password);
   
   sheet.appendRow([
-    newId, 
-    data.firstName, 
-    data.lastName, 
-    data.contact, 
-    data.role, 
-    hashedPassword, 
-    timestamp,
-    "", // No token initially
+    Utilities.getUuid(),
+    data.firstName,
+    data.lastName,
+    data.contact,
+    data.role,
+    passwordHash,
+    new Date(),
+    token,
     data.schoolName || ""
   ]);
-  
-  return { success: true, message: "تم التسجيل بنجاح. يرجى تسجيل الدخول للبدء." };
+
+  return {
+    success: true,
+    user: {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      contact: data.contact,
+      role: data.role,
+      schoolName: data.schoolName || "",
+      token: token
+    }
+  };
 }
 
 function loginUser(data) {
   const sheet = getOrCreateSheet("Users");
   const values = sheet.getDataRange().getValues();
-  const hashedPassword = hashPassword(data.password);
-  
+  const inputHash = hashPassword(data.password);
+
   for (let i = 1; i < values.length; i++) {
-    const row = values[i];
-    if (row[3] == data.contact && row[5] == hashedPassword) {
-      // إنشاء رمز تحقق جديد للحماية
-      const token = Utilities.getUuid();
-      sheet.getRange(i + 1, 8).setValue(token);
-      
-      return { 
-        success: true, 
-        message: "تم تسجيل الدخول بنجاح", 
-        token: token,
-        user: { 
-          id: row[0], 
-          firstName: row[1], 
-          lastName: row[2] || "",
-          role: row[4], 
-          contact: row[3],
-          schoolName: row[8] || ""
-        } 
-      };
+    if (values[i][3] == data.username) {
+      if (values[i][5] == inputHash) {
+        const token = Utilities.getUuid();
+        sheet.getRange(i + 1, 8).setValue(token);
+
+        return {
+          success: true,
+          user: {
+            firstName: values[i][1],
+            lastName: values[i][2],
+            contact: values[i][3],
+            role: values[i][4],
+            schoolName: values[i][8] || "",
+            token: token
+          }
+        };
+      } else {
+        return { success: false, message: "كلمة المرور غير صحيحة." };
+      }
     }
   }
-  
-  return { success: false, message: "بيانات الدخول غير صحيحة." };
+
+  return { success: false, message: "المستخدم غير موجود." };
 }
 
 function getStudents(data) {
   const usersSheet = getOrCreateSheet("Users");
   const userValues = usersSheet.getDataRange().getValues();
   let userRole = "admin";
-  let userSchool = "";
 
   for (let i = 1; i < userValues.length; i++) {
     if (userValues[i][3] == data.contact) {
       userRole = userValues[i][4];
-      userSchool = userValues[i][8] || "";
       break;
     }
   }
@@ -193,13 +211,13 @@ function getStudents(data) {
   const students = [];
 
   // إذا كان مديراً: يجلب طلابه
-  // إذا كان معلماً: يجلب طلاب المدرسة التابع لها أو المرتبط بها
+  // إذا كان معلماً: يجلب طلاب المدارس التي قبل دعوتها فقط (accepted)
   let allowedContacts = [data.contact];
   if (userRole === "teacher") {
     const stSheet = getOrCreateSheet("SchoolTeachers");
     const stValues = stSheet.getDataRange().getValues();
     for (let i = 1; i < stValues.length; i++) {
-      if (stValues[i][3] == data.contact && stValues[i][5] == "active") {
+      if (stValues[i][3] == data.contact && (stValues[i][5] == "accepted" || stValues[i][5] == "active")) {
         allowedContacts.push(stValues[i][1]); // Admin Contact
       }
     }
@@ -207,9 +225,8 @@ function getStudents(data) {
   
   for (let i = 1; i < values.length; i++) {
     const ownerContact = values[i][1];
-    const studentSchool = values[i][7] || "";
     
-    if (allowedContacts.indexOf(ownerContact) !== -1 || (userSchool && studentSchool && userSchool === studentSchool)) {
+    if (allowedContacts.indexOf(ownerContact) !== -1) {
       students.push({
         id: values[i][0], name: values[i][2], class: values[i][3],
         section: values[i][4], parentNumber: values[i][5]
@@ -234,7 +251,7 @@ function addStudent(data) {
   return { success: true, message: "تم إضافة الطالب بنجاح." };
 }
 
-// --- ميزات البحث والدعوة للمعلمين ---
+// --- ميزات البحث والدعوة للمعلمين والإشعارات ---
 
 function searchTeachers(data) {
   const usersSheet = getOrCreateSheet("Users");
@@ -242,11 +259,11 @@ function searchTeachers(data) {
   const stSheet = getOrCreateSheet("SchoolTeachers");
   const stValues = stSheet.getDataRange().getValues();
 
-  // المعلمون المرتبطون مسبقاً بهذا المدير
-  const linkedTeacherContacts = {};
+  // المعلمون وحالات دعوتهم لدى هذا المدير
+  const teacherStatusMap = {};
   for (let i = 1; i < stValues.length; i++) {
-    if (stValues[i][1] == data.contact && stValues[i][5] == "active") {
-      linkedTeacherContacts[stValues[i][3]] = true;
+    if (stValues[i][1] == data.contact) {
+      teacherStatusMap[stValues[i][3]] = stValues[i][5]; // 'pending', 'accepted', 'rejected'
     }
   }
 
@@ -267,12 +284,14 @@ function searchTeachers(data) {
                       schoolName.toLowerCase().indexOf(query) !== -1;
 
       if (matches) {
+        const status = teacherStatusMap[contact] || "none";
         teachers.push({
           id: row[0],
           name: fullName,
           contact: contact,
           schoolName: schoolName,
-          isJoined: !!linkedTeacherContacts[contact]
+          status: status, // 'none', 'pending', 'accepted', 'rejected'
+          isJoined: status === "accepted" || status === "active"
         });
       }
     }
@@ -288,8 +307,10 @@ function inviteTeacher(data) {
   // فحص إذا كان الربط موجوداً مسبقاً
   for (let i = 1; i < values.length; i++) {
     if (values[i][1] == data.adminContact && values[i][3] == data.teacherContact) {
-      stSheet.getRange(i + 1, 6).setValue("active");
-      return { success: true, message: "تم تفعيل مشاركة بيانات الطلاب مع المعلم بنجاح." };
+      stSheet.getRange(i + 1, 6).setValue("pending");
+      stSheet.getRange(i + 1, 3).setValue(data.schoolName || "");
+      stSheet.getRange(i + 1, 8).setValue(data.adminName || "");
+      return { success: true, message: "تم إرسال دعوة جديدة للمعلم بنجاح وبانتظار موافقته." };
     }
   }
 
@@ -299,11 +320,12 @@ function inviteTeacher(data) {
     data.schoolName || "",
     data.teacherContact,
     data.teacherName || "",
-    "active",
-    new Date()
+    "pending",
+    new Date(),
+    data.adminName || ""
   ]);
 
-  return { success: true, message: "تمت دعوة المعلم ومشاركة بيانات طلاب المدرسة بنجاح." };
+  return { success: true, message: "تم إرسال الدعوة للمعلم بنجاح. سيظهر له إشعار للموافقة عند تسجيل دخوله." };
 }
 
 function unshareTeacher(data) {
@@ -312,7 +334,7 @@ function unshareTeacher(data) {
 
   for (let i = 1; i < values.length; i++) {
     if (values[i][1] == data.adminContact && values[i][3] == data.teacherContact) {
-      stSheet.getRange(i + 1, 6).setValue("inactive");
+      stSheet.getRange(i + 1, 6).setValue("rejected");
       return { success: true, message: "تم إلغاء مشاركة بيانات الطلاب مع المعلم." };
     }
   }
@@ -326,7 +348,7 @@ function getSchoolTeachers(data) {
   const teachers = [];
 
   for (let i = 1; i < values.length; i++) {
-    if (values[i][1] == data.contact && values[i][5] == "active") {
+    if (values[i][1] == data.contact && (values[i][5] == "accepted" || values[i][5] == "active" || values[i][5] == "pending")) {
       teachers.push({
         id: values[i][0],
         adminContact: values[i][1],
@@ -340,3 +362,59 @@ function getSchoolTeachers(data) {
 
   return { success: true, teachers: teachers };
 }
+
+// جلب الدعوات المعلقة الخاصة بالمعلم
+function getTeacherInvitations(data) {
+  const stSheet = getOrCreateSheet("SchoolTeachers");
+  const values = stSheet.getDataRange().getValues();
+  const invitations = [];
+
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][3] == data.contact && values[i][5] == "pending") {
+      invitations.push({
+        id: values[i][0],
+        adminContact: values[i][1],
+        schoolName: values[i][2],
+        teacherContact: values[i][3],
+        teacherName: values[i][4],
+        status: values[i][5],
+        date: values[i][6],
+        adminName: values[i][7] || "مدير المدرسة"
+      });
+    }
+  }
+
+  return { success: true, invitations: invitations };
+}
+
+// رد المعلم على الدعوة (قبول أو رفض)
+function respondInvitation(data) {
+  const stSheet = getOrCreateSheet("SchoolTeachers");
+  const values = stSheet.getDataRange().getValues();
+  const isAccept = data.response === "accept";
+  const newStatus = isAccept ? "accepted" : "rejected";
+
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][0] == data.invitationId && values[i][3] == data.contact) {
+      stSheet.getRange(i + 1, 6).setValue(newStatus);
+      
+      if (isAccept) {
+        return { 
+          success: true, 
+          status: "accepted", 
+          schoolName: values[i][2],
+          message: "تم قبول الدعوة بنجاح! تم تفعيل مشاركة بيانات طلاب المدرسة معكم." 
+        };
+      } else {
+        return { 
+          success: true, 
+          status: "rejected", 
+          message: "تم رفض الدعوة." 
+        };
+      }
+    }
+  }
+
+  return { success: false, message: "لم يتم العثور على الدعوة المحددة." };
+}
+

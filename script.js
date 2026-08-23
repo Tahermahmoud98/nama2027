@@ -86,9 +86,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const teachersSearchResults = document.getElementById('teachersSearchResults');
     const mySchoolTeachersList = document.getElementById('mySchoolTeachersList');
 
+    // Notifications & Teacher Invitations Elements
+    const notificationsBtn = document.getElementById('notificationsBtn');
+    const notifBadge = document.getElementById('notifBadge');
+    const invitationsModal = document.getElementById('invitationsModal');
+    const closeInvitationsModal = document.getElementById('closeInvitationsModal');
+    const invitationsListContainer = document.getElementById('invitationsListContainer');
+
     // --- Current User State ---
     let currentUser = null;
     let localSchoolTeachers = [];
+    let teacherInvitations = [];
 
     // --- DOM Elements - Modals & Buttons ---
     const manageStudentsBtn = document.getElementById('manageStudentsBtn');
@@ -167,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- API Configuration ---
     // ضع رابط تطبيق الويب الخاص بـ Google Apps Script هنا
-    const API_URL = "https://script.google.com/macros/s/AKfycbw1uj5IdZU60JGMbWpH_8Giy0uay8oA9OZq7ECWkG4p-fgi4EuA9Ud_v12IbkZB_eXxhg/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbwfCDzSups70aPgwQA_zt42pk3PFRX9PM5LTGg34r_egLR7gb4pm-GqGGYazjCdKHwoyA/exec"; 
 
     // --- Loading State Helper ---
     const setLoading = (btn, isLoading, originalText = '') => {
@@ -218,9 +226,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentUser.role === 'admin') {
             modeSwitcherContainer.style.display = 'flex';
             if (searchTeachersBtn) searchTeachersBtn.style.display = 'inline-flex';
+            if (notificationsBtn) notificationsBtn.style.display = 'none';
             if (modalCurrentSchoolName) modalCurrentSchoolName.textContent = currentUser.schoolName || '...';
         } else if (currentUser.role === 'teacher') {
             if (searchTeachersBtn) searchTeachersBtn.style.display = 'none';
+            if (notificationsBtn) notificationsBtn.style.display = 'inline-flex';
             modeSwitcherContainer.style.display = 'none';
             currentMode = 'students';
             modeStudentsBtn.classList.add('active');
@@ -240,6 +250,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (typeof applyTranslations === 'function') setTimeout(applyTranslations, 100);
             if (typeof updatePreview === 'function') setTimeout(updatePreview, 100);
+
+            // Load pending invitations for teacher
+            loadTeacherInvitations();
         }
 
         // Fetch students for this user from Google Sheets
@@ -1414,6 +1427,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const initial = teacher.name ? teacher.name.trim().charAt(0).toUpperCase() : 'T';
         const schoolDisplay = teacher.schoolName || (currentLang === 'ckb' ? 'دیاری نەکراوە' : (currentLang === 'ku' ? 'دیار نینە' : 'غير محدد'));
 
+        const status = teacher.status || (isJoined ? 'accepted' : 'none');
+        let statusBadgeHtml = '';
+        let actionBtnHtml = '';
+
+        if (status === 'accepted' || status === 'active') {
+            statusBadgeHtml = `<span class="teacher-badge badge-joined-pill"><i class="fa-solid fa-check-circle"></i> ${dict.badge_accepted || 'مقبولة ومشارك'}</span>`;
+            actionBtnHtml = `<button class="btn-unshare-action" title="${dict.btn_unshare_teacher}"><i class="fa-solid fa-user-minus"></i> ${dict.btn_unshare_teacher || 'إلغاء المشاركة'}</button>`;
+        } else if (status === 'pending') {
+            statusBadgeHtml = `<span class="teacher-badge badge-pending-pill"><i class="fa-solid fa-clock"></i> ${dict.badge_pending || 'قيد الانتظار'}</span>`;
+            actionBtnHtml = `<button class="btn-unshare-action" title="${dict.btn_unshare_teacher}"><i class="fa-solid fa-ban"></i> ${dict.btn_unshare_teacher || 'إلغاء الدعوة'}</button>`;
+        } else if (status === 'rejected') {
+            statusBadgeHtml = `<span class="teacher-badge badge-rejected-pill"><i class="fa-solid fa-xmark-circle"></i> ${dict.badge_rejected || 'مرفوضة'}</span>`;
+            actionBtnHtml = `<button class="btn-invite-action"><i class="fa-solid fa-user-plus"></i> ${dict.btn_invite_share || 'إعادة الدعوة'}</button>`;
+        } else {
+            actionBtnHtml = `<button class="btn-invite-action"><i class="fa-solid fa-user-plus"></i> ${dict.btn_invite_share || 'دعوة ومشاركة الطلاب'}</button>`;
+        }
+
         card.innerHTML = `
             <div class="teacher-card-info">
                 <div class="teacher-avatar-circle">${initial}</div>
@@ -1426,11 +1456,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
             <div class="teacher-card-actions">
-                ${isJoined ? 
-                    `<span class="teacher-badge badge-joined-pill"><i class="fa-solid fa-check-circle"></i> ${dict.badge_joined || 'منضم ومشارك'}</span>
-                     <button class="btn-unshare-action" title="${dict.btn_unshare_teacher}"><i class="fa-solid fa-user-minus"></i> ${dict.btn_unshare_teacher || 'إلغاء المشاركة'}</button>` :
-                    `<button class="btn-invite-action"><i class="fa-solid fa-user-plus"></i> ${dict.btn_invite_share || 'دعوة ومشاركة الطلاب'}</button>`
-                }
+                ${statusBadgeHtml}
+                ${actionBtnHtml}
                 <button class="btn-wa-invite-action" title="${dict.btn_send_wa_invite}"><i class="fa-brands fa-whatsapp"></i> ${dict.btn_send_wa_invite || 'واتساب'}</button>
             </div>
         `;
@@ -1536,7 +1563,142 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onclick = (event) => {
         if (originalWindowOnClick) originalWindowOnClick(event);
         if (event.target == searchTeachersModal) closeSearchTeachersModalFn();
+        if (event.target == invitationsModal) {
+            if (invitationsModal) invitationsModal.style.display = 'none';
+        }
     };
+
+    // --- Teacher Notifications & Invitations Functions ---
+    const loadTeacherInvitations = async () => {
+        if (!currentUser || currentUser.role !== 'teacher' || !API_URL) return;
+        try {
+            const res = await callApi('getTeacherInvitations', {
+                contact: currentUser.contact,
+                token: currentUser.token
+            });
+            if (res.success && res.invitations) {
+                teacherInvitations = res.invitations;
+                updateNotifBadge();
+            }
+        } catch (e) {
+            console.error('Error fetching teacher invitations:', e);
+        }
+    };
+
+    const updateNotifBadge = () => {
+        if (!notifBadge) return;
+        const count = teacherInvitations.length;
+        notifBadge.textContent = count;
+        if (count > 0) {
+            notifBadge.style.display = 'flex';
+        } else {
+            notifBadge.style.display = 'none';
+        }
+    };
+
+    const renderTeacherInvitations = () => {
+        if (!invitationsListContainer) return;
+        const dict = translations[currentLang] || translations.ku;
+        invitationsListContainer.innerHTML = '';
+
+        if (teacherInvitations.length === 0) {
+            invitationsListContainer.innerHTML = `
+                <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-secondary);">
+                    <i class="fa-regular fa-bell-slash" style="font-size: 2.5rem; margin-bottom: 0.8rem; display: block; opacity: 0.5;"></i>
+                    <p style="font-size: 0.95rem;">${dict.msg_no_invitations || 'لا توجد أي دعوات جديدة حالياً.'}</p>
+                </div>
+            `;
+            return;
+        }
+
+        teacherInvitations.forEach(inv => {
+            const card = document.createElement('div');
+            card.className = 'invitation-card';
+            card.innerHTML = `
+                <div class="invitation-details">
+                    <div class="invitation-school-title">
+                        <i class="fa-solid fa-school"></i>
+                        <span>${inv.schoolName || (currentLang === 'ckb' ? 'قوتابخانە' : (currentLang === 'ku' ? 'قوتابخانە' : 'المدرسة'))}</span>
+                    </div>
+                    <div class="invitation-sender">
+                        <span><i class="fa-solid fa-user-tie" style="color: #a5b4fc;"></i> ${dict.txt_invited_by || 'دعوة من المدير:'} <strong>${inv.adminName || inv.adminContact}</strong></span>
+                    </div>
+                </div>
+                <div class="invitation-actions">
+                    <button class="btn-accept-invite">
+                        <i class="fa-solid fa-check"></i>
+                        <span>${dict.btn_accept_invite || 'قبول ومشاركة الطلاب'}</span>
+                    </button>
+                    <button class="btn-reject-invite">
+                        <i class="fa-solid fa-xmark"></i>
+                        <span>${dict.btn_reject_invite || 'رفض'}</span>
+                    </button>
+                </div>
+            `;
+
+            card.querySelector('.btn-accept-invite').addEventListener('click', () => handleRespondInvitation(inv, 'accept'));
+            card.querySelector('.btn-reject-invite').addEventListener('click', () => handleRespondInvitation(inv, 'reject'));
+
+            invitationsListContainer.appendChild(card);
+        });
+    };
+
+    const handleRespondInvitation = async (invitation, response) => {
+        if (!currentUser) return;
+        const dict = translations[currentLang] || translations.ku;
+
+        try {
+            showDialog('<i class="fa-solid fa-spinner fa-spin"></i> جاري معالجة الطلب...');
+            const res = await callApi('respondInvitation', {
+                invitationId: invitation.id,
+                response: response,
+                contact: currentUser.contact,
+                token: currentUser.token
+            });
+
+            if (res.success) {
+                if (response === 'accept') {
+                    showDialog(dict.msg_invite_accepted || res.message);
+                    // Fetch students immediately for the teacher!
+                    const studRes = await callApi('getStudents', {
+                        contact: currentUser.contact,
+                        token: currentUser.token
+                    });
+                    if (studRes.success && studRes.students) {
+                        appStudents = studRes.students;
+                        refreshDatalist();
+                        renderStudentsTable();
+                    }
+                } else {
+                    showDialog(dict.msg_invite_rejected || res.message);
+                }
+
+                // Refresh invitations list & badge
+                await loadTeacherInvitations();
+                renderTeacherInvitations();
+            } else {
+                showDialog(res.message || 'حدث خطأ أثناء معالجة الطلب.');
+            }
+        } catch (e) {
+            console.error('Error responding to invitation:', e);
+            showDialog('حدث خطأ أثناء الاتصال بالسيرفر.');
+        }
+    };
+
+    if (notificationsBtn) {
+        notificationsBtn.addEventListener('click', () => {
+            if (invitationsModal) {
+                invitationsModal.style.display = 'block';
+                renderTeacherInvitations();
+            }
+        });
+    }
+
+    if (closeInvitationsModal) {
+        closeInvitationsModal.addEventListener('click', () => {
+            if (invitationsModal) invitationsModal.style.display = 'none';
+        });
+    }
 
     // Start
     setupCustomLangPickers();

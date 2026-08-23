@@ -184,7 +184,19 @@ const translations = {
         lbl_teacher_school: "المدرسة المسجلة:",
         lbl_status: "الحالة:",
         tag_shared_students: "بيانات الطلاب المشتركة مفعلة",
-        btn_logout: "خروج"
+        btn_logout: "خروج",
+        btn_notifications: "الإشعارات",
+        modal_invitations_title: "<i class='fa-solid fa-bell'></i> دعوات المدارس ومشاركة بيانات الطلاب",
+        btn_accept_invite: "قبول ومشاركة الطلاب",
+        btn_reject_invite: "رفض",
+        badge_pending: "قيد الانتظار",
+        badge_accepted: "مقبولة ومشارك",
+        badge_rejected: "مرفوضة",
+        msg_no_invitations: "لا توجد أي دعوات جديدة حالياً.",
+        txt_invited_by: "دعوة من المدير:",
+        txt_school_shared: "المدرسة:",
+        msg_invite_accepted: "تم قبول الدعوة بنجاح! تم تنزيل بيانات طلاب المدرسة بحسابك.",
+        msg_invite_rejected: "تم رفض الدعوة."
     },
     ku: {
         title: "پلاتفۆرما ئاگەهداریێن قوتابخانێ",
@@ -371,7 +383,19 @@ const translations = {
         lbl_teacher_school: "قوتابخانا تۆمارکری:",
         lbl_status: "رەوش:",
         tag_shared_students: "داتایا پشکداریکری یا قوتابییان یا کارایە",
-        btn_logout: "دەرکەفتن"
+        btn_logout: "دەرکەفتن",
+        btn_notifications: "ئاگەهداری",
+        modal_invitations_title: "<i class='fa-solid fa-bell'></i> داخازنامەیێن قوتابخانەیان و پشکداریکرنا قوتابییان",
+        btn_accept_invite: "قەبوولکرن و پشکداری",
+        btn_reject_invite: "ڕەتکرن",
+        badge_pending: "ل هیڤیێ",
+        badge_accepted: "قەبوولکری و پشکدار",
+        badge_rejected: "ڕەتکری",
+        msg_no_invitations: "چ داخازنامەیێن نوی نینن نوکە.",
+        txt_invited_by: "داخازنامە ژ لایێ رێڤەبەری:",
+        txt_school_shared: "قوتابخانە:",
+        msg_invite_accepted: "داخازی هاتە قەبوولکرن ب سەرکەفتی! داتایا قوتابییان هاتە بەردەستکرن.",
+        msg_invite_rejected: "داخازی هاتە ڕەتکرن."
     },
     ckb: {
         title: "پلاتفۆرمی ئاگادارییەکانی قوتابخانە",
@@ -558,7 +582,19 @@ const translations = {
         lbl_teacher_school: "قوتابخانەی تۆمارکراو:",
         lbl_status: "دۆخ:",
         tag_shared_students: "داتای هاوبەشکراوی قوتابیان چالاکە",
-        btn_logout: "دەرچوون"
+        btn_logout: "دەرچوون",
+        btn_notifications: "ئاگادارییەکان",
+        modal_invitations_title: "<i class='fa-solid fa-bell'></i> بانگهێشتنامەی قوتابخانەکان و هاوبەشکردنی قوتابیان",
+        btn_accept_invite: "قبووڵکردن و هاوبەشی",
+        btn_reject_invite: "ڕەتکردنەوە",
+        badge_pending: "چاوەڕوانکراو",
+        badge_accepted: "قبووڵکراو و پەیوەستکراو",
+        badge_rejected: "ڕەتکراوە",
+        msg_no_invitations: "هیچ بانگهێشتنامەیەکی نوێ نییە لە ئێستادا.",
+        txt_invited_by: "بانگهێشت لەلایەن بەڕێوەبەر:",
+        txt_school_shared: "قوتابخانە:",
+        msg_invite_accepted: "بانگهێشتنامە بە سەرکەوتوویی قبووڵ کرا! داتای قوتابیان لە هەژمارەکەت بارکرا.",
+        msg_invite_rejected: "بانگهێشتنامە ڕەتکرایەوە."
     },
     en: {
         title: "School Notification Platform",
@@ -745,7 +781,19 @@ const translations = {
         lbl_teacher_school: "Registered School:",
         lbl_status: "Status:",
         tag_shared_students: "Shared Students Data Active",
-        btn_logout: "Logout"
+        btn_logout: "Logout",
+        btn_notifications: "Notifications",
+        modal_invitations_title: "<i class='fa-solid fa-bell'></i> School Invitations & Student Sharing",
+        btn_accept_invite: "Accept & Share Students",
+        btn_reject_invite: "Reject",
+        badge_pending: "Pending",
+        badge_accepted: "Accepted",
+        badge_rejected: "Rejected",
+        msg_no_invitations: "No pending invitations at this time.",
+        txt_invited_by: "Invited by Principal:",
+        txt_school_shared: "School:",
+        msg_invite_accepted: "Invitation accepted! School students data is now active in your account.",
+        msg_invite_rejected: "Invitation was rejected."
     }
 };
 
